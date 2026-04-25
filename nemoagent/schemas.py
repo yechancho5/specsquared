@@ -7,8 +7,19 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 
-WorkflowMode = Literal["single", "two-normal", "two-ssd"]
+WorkflowMode = Literal["single", "two-normal", "two-ssd", "seven-personalities"]
 BackendName = Literal["mock", "normal", "ssd"]
+WorkflowType = Literal["coding", "scientific-paper"]
+ScenarioType = Literal["auto", "coding", "document-review", "general"]
+PersonalityName = Literal[
+    "conscientiousness",
+    "agreeableness",
+    "extraversion",
+    "neuroticism",
+    "openness",
+    "self-esteem",
+    "sensitivity",
+]
 
 
 def utc_now() -> str:
@@ -55,12 +66,25 @@ class AgentResult(BaseModel):
 class RunConfig(BaseModel):
     run_id: str = Field(default_factory=new_run_id)
     mode: WorkflowMode
+    workflow: WorkflowType = "coding"
     backend: BackendName
     prompt: str
     model: str
     temperature: float = 0.2
     max_tokens: int = 700
     dialogue_rounds: int = 2
+    scenario: ScenarioType = "auto"
+    personality_order: list[PersonalityName] = Field(
+        default_factory=lambda: [
+            "extraversion",
+            "agreeableness",
+            "neuroticism",
+            "sensitivity",
+            "self-esteem",
+            "openness",
+            "conscientiousness",
+        ]
+    )
     timestamp: str = Field(default_factory=utc_now)
 
 
@@ -81,6 +105,12 @@ class BenchmarkMetrics(BaseModel):
     communication_enabled: bool = False
     communication_effect_score: float = 0.0
     final_quality_score: float = 0.0
+    scenario: ScenarioType = "general"
+    approval_agent: Optional[str] = None
+    approval_round: Optional[int] = None
+    agent_latency_ms: dict[str, float] = Field(default_factory=dict)
+    agent_tokens_in: dict[str, int] = Field(default_factory=dict)
+    agent_tokens_out: dict[str, int] = Field(default_factory=dict)
 
 
 class RunArtifacts(BaseModel):

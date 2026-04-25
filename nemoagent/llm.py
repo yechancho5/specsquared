@@ -48,10 +48,153 @@ class MockLLMBackend(BaseLLMBackend):
         prompt = _extract_prompt(messages)
         lower = prompt.lower()
 
-        if "critic response round 2" in lower:
+        explicit_scenario_doc = "scenario context: document-review" in lower
+        explicit_scenario_coding = "scenario context: coding" in lower
+        explicit_scenario_general = "scenario context: general" in lower
+
+        is_coding = explicit_scenario_coding or (
+            not explicit_scenario_doc
+            and not explicit_scenario_general
+            and any(token in lower for token in ("code", "implement", "function", "class", "test", "api"))
+        )
+        is_doc = explicit_scenario_doc or (
+            not explicit_scenario_coding
+            and not explicit_scenario_general
+            and any(token in lower for token in ("document", "review", "edit", "proofread", "style", "clarity"))
+        )
+
+        if "this is conscientiousness approval round 2" in lower:
+            text = (
+                "APPROVED: The revised artifact is now specific, internally consistent, and addresses prior high-priority "
+                "quality concerns with clear execution details."
+            )
+        elif "this is conscientiousness approval round 1" in lower:
+            text = (
+                "1. Tighten concrete execution details with explicit steps and ownership.\n"
+                "2. Resolve vague language and convert claims into verifiable specifics.\n"
+                "3. Strengthen risk handling and success criteria for evaluation."
+            )
+        elif "this is openness synthesis round 2" in lower:
+            if is_coding:
+                text = (
+                    "Implementation Plan:\n"
+                    "1. Introduce a personality registry and role-aware prompt policy.\n"
+                    "2. Add a seven-personality orchestration branch while preserving legacy workflows.\n"
+                    "3. Generalize metrics to track per-agent latency/tokens and approval rounds.\n"
+                    "4. Expand mock-mode fixtures for deterministic personality dialogue tests.\n"
+                    "5. Validate with regression commands and benchmark parity checks.\n\n"
+                    "Code Review Notes:\n"
+                    "- Keep API compatibility for existing CLI flags and run artifacts.\n"
+                    "- Add focused tests around approval gating and scenario detection.\n"
+                    "- Document migration and fallback behavior in README."
+                )
+            elif is_doc:
+                text = (
+                    "Revised Review Summary:\n"
+                    "The document now has a clearer thesis, cleaner section transitions, and explicit action items. "
+                    "Ambiguous terms were normalized, repetitive phrasing was removed, and evidence claims are easier to verify.\n\n"
+                    "Remaining strengths:\n"
+                    "- Reader intent is addressed early.\n"
+                    "- Risk caveats are explicit and concise.\n"
+                    "- The conclusion maps directly to next-step decisions."
+                )
+            else:
+                text = (
+                    "Revised output:\n"
+                    "- Clarified the problem and user impact with concrete context.\n"
+                    "- Converted broad claims into specific, testable statements.\n"
+                    "- Added explicit risks and practical mitigations.\n"
+                    "- Organized the content into a structured, decision-ready format."
+                )
+        elif "this is openness synthesis round 1" in lower:
+            if is_coding:
+                text = (
+                    "Draft Implementation Direction:\n"
+                    "- Build a single adaptive seven-personality workflow for coding and document review prompts.\n"
+                    "- Use extraversion/agreeableness/neuroticism/sensitivity/self-esteem as reviewer personas.\n"
+                    "- Use openness as synthesizer and conscientiousness as final approval gate.\n"
+                    "- Preserve legacy single and two-agent-compatible modes for backward compatibility."
+                )
+            elif is_doc:
+                text = (
+                    "Draft Document Revision:\n"
+                    "The draft improves readability and flow, but it still needs sharper evidence language, stronger section purpose, "
+                    "and clearer revision outcomes tied to audience needs."
+                )
+            else:
+                text = (
+                    "Draft revised output:\n"
+                    "The response is more structured and specific than the baseline, with clearer priorities and practical next actions."
+                )
+        elif "this is openness synthesis round 0" in lower:
+            if is_coding:
+                text = (
+                    "Initial solution sketch:\n"
+                    "Implement a multi-agent workflow that coordinates seven personality-driven reviewers and a synthesis step to "
+                    "produce stronger coding and review outputs while retaining existing CLI behavior."
+                )
+            elif is_doc:
+                text = (
+                    "Initial review baseline:\n"
+                    "The current draft communicates intent but lacks consistent structure, precision, and reader-directed actionability."
+                )
+            else:
+                text = (
+                    "Initial baseline:\n"
+                    "A first draft exists but needs stronger structure, concrete details, and clearer success criteria."
+                )
+        elif "this is extraversion review round" in lower:
+            text = (
+                "1. Increase communication impact by making the lead sentence outcome-focused.\n"
+                "2. Tighten section transitions so the narrative is easier to follow.\n"
+                "3. Replace abstract claims with vivid, concrete examples."
+            )
+        elif "this is agreeableness review round" in lower:
+            text = (
+                "1. Improve audience alignment and reduce jargon where possible.\n"
+                "2. Add one line that addresses likely stakeholder concerns.\n"
+                "3. Keep recommendations collaborative and implementation-friendly."
+            )
+        elif "this is neuroticism review round" in lower:
+            text = (
+                "1. Add explicit risk cases and failure contingencies.\n"
+                "2. Clarify assumptions that could break under real constraints.\n"
+                "3. Define guardrails for high-impact mistakes."
+            )
+        elif "this is sensitivity review round" in lower:
+            text = (
+                "1. Resolve subtle ambiguity in terminology and scope.\n"
+                "2. Ensure each claim maps cleanly to supporting context.\n"
+                "3. Normalize wording to avoid interpretation drift."
+            )
+        elif "this is self-esteem review round" in lower:
+            text = (
+                "1. Remove hedging and commit to clear design choices.\n"
+                "2. Defend trade-offs explicitly instead of implying them.\n"
+                "3. Keep the conclusion decisive and action-oriented."
+            )
+
+        elif "editor response round 2" in lower:
+            text = (
+                "APPROVED: The revised solution now addresses correctness concerns, includes concrete implementation steps, "
+                "and provides clear validation guidance."
+            )
+        elif "critic response round 2" in lower:
             text = (
                 "APPROVED: The revised pitch now names the user, shows concrete workflow features, "
                 "addresses outsider skepticism, and has a demo path that is specific enough for evaluation."
+            )
+        elif "builder response round 2" in lower and ("editor response round" in lower or "editor -> builder" in lower):
+            text = (
+                "Implementation Plan:\n"
+                "1. Create explicit workflow routing via a user parameter (`coding` vs `scientific-paper`).\n"
+                "2. Keep Builder+Editor as the coding path and remove outsider dependence.\n"
+                "3. Route scientific-paper workflow to seven personalities with conscientiousness approval.\n"
+                "4. Update CLI and benchmark surfaces to accept and pass workflow selection.\n"
+                "5. Add regression checks for both paths in mock mode.\n\n"
+                "Validation Notes:\n"
+                "- Confirm coding workflow runs Builder then Editor rounds with approval stop.\n"
+                "- Confirm scientific-paper workflow runs personality collaboration."
             )
         elif "builder response round 2" in lower:
             text = (
@@ -67,6 +210,13 @@ class MockLLMBackend(BaseLLMBackend):
                 "Risks: Incorrect synthesis, stale evidence, and overreliance. Mitigation: source-linked claims, recency filters, confidence flags, and mandatory human approval for clinical use.\n"
                 "Demo plan: Show an oncology feed, open a new paper summary, verify citations, and route it through a physician approval workflow."
             )
+        elif "editor response round 1" in lower:
+            text = (
+                "1. Replace high-level statements with implementation-level detail.\n"
+                "2. Add concrete validation and testing strategy.\n"
+                "3. Clarify edge cases and failure handling.\n"
+                "4. Tighten language around assumptions and constraints."
+            )
         elif "outsider response round 1" in lower:
             text = (
                 "1. A skeptical hospital buyer will ask how this fits existing clinical systems instead of becoming another dashboard.\n"
@@ -80,6 +230,13 @@ class MockLLMBackend(BaseLLMBackend):
                 "3. Add review or approval features that show how teams would actually use it.\n"
                 "4. Strengthen the risk section with concrete mitigation steps.\n"
                 "5. Make the demo plan show a complete workflow from paper intake to approval."
+            )
+        elif "builder response round 1" in lower and ("editor response round" in lower or "editor -> builder" in lower):
+            text = (
+                "Draft Technical Revision:\n"
+                "- Added concrete implementation steps instead of high-level intent.\n"
+                "- Added validation strategy and explicit edge-case handling.\n"
+                "- Clarified constraints, assumptions, and expected outcomes."
             )
         elif "builder response round 1" in lower or "revise the pitch" in lower or ("first draft:" in lower and "critic feedback" in lower):
             text = (
@@ -104,12 +261,26 @@ class MockLLMBackend(BaseLLMBackend):
                 "5. End with a crisp demo plan or rollout path."
             )
         else:
-            text = (
-                "MediBrief is an AI tool that helps doctors summarize new medical papers.\n\n"
-                "It gives physicians quick summaries of research so they can stay current without reading every paper in full.\n"
-                "The product uses AI to read medical literature, condense the findings, and present key takeaways in a simple dashboard.\n"
-                "Doctors can search by topic and review recent publications faster."
-            )
+            if is_coding:
+                text = (
+                    "Draft Technical Plan:\n"
+                    "- Define clear module boundaries and interfaces.\n"
+                    "- Implement core logic with explicit error handling and edge-case coverage.\n"
+                    "- Add tests for happy path, edge cases, and regression risks.\n"
+                    "- Document assumptions, constraints, and verification steps."
+                )
+            elif is_doc:
+                text = (
+                    "Initial review baseline:\n"
+                    "The draft states the core idea, but needs clearer structure, evidence framing, and explicit risk language."
+                )
+            else:
+                text = (
+                    "MediBrief is an AI tool that helps doctors summarize new medical papers.\n\n"
+                    "It gives physicians quick summaries of research so they can stay current without reading every paper in full.\n"
+                    "The product uses AI to read medical literature, condense the findings, and present key takeaways in a simple dashboard.\n"
+                    "Doctors can search by topic and review recent publications faster."
+                )
 
         latency_ms = (time.perf_counter() - start) * 1000 + 120
         tokens_in = estimate_tokens(prompt)

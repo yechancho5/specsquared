@@ -7,7 +7,7 @@ from typing import Optional
 from .llm import LLMClient
 from .orchestrator import Orchestrator
 from .run_logger import save_benchmark_summary
-from .schemas import BenchmarkSummaryRow, RunConfig, WorkflowMode
+from .schemas import BenchmarkSummaryRow, RunConfig, ScenarioType, WorkflowMode, WorkflowType
 
 
 def load_prompts(prompt_file: str) -> list[str]:
@@ -27,6 +27,8 @@ def run_benchmark(
     temperature: float = 0.2,
     max_tokens: int = 700,
     dialogue_rounds: int = 2,
+    scenario: ScenarioType = "auto",
+    workflow: WorkflowType = "coding",
 ) -> tuple[list[BenchmarkSummaryRow], str]:
     llm = LLMClient()
     orchestrator = Orchestrator(llm=llm)
@@ -39,12 +41,14 @@ def run_benchmark(
             for _ in range(runs):
                 config = RunConfig(
                     mode=mode,
+                    workflow=workflow,
                     backend=backend,  # type: ignore[arg-type]
                     prompt=prompt,
                     model=model or llm.default_model_for(backend),  # type: ignore[arg-type]
                     temperature=temperature,
                     max_tokens=max_tokens,
                     dialogue_rounds=dialogue_rounds,
+                    scenario=scenario,
                 )
                 trace = orchestrator.run_workflow(config)
                 results.setdefault((mode, backend), []).append(trace.metrics)

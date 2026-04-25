@@ -4,7 +4,7 @@ import re
 from collections.abc import Iterable
 
 
-QUALITY_SIGNALS: list[tuple[str, tuple[str, ...]]] = [
+QUALITY_SIGNALS_GENERAL: list[tuple[str, tuple[str, ...]]] = [
     ("problem", ("problem", "pain point", "challenge")),
     ("target user", ("target user", "customer", "doctor", "physician", "user")),
     ("solution", ("solution", "platform", "tool", "product")),
@@ -13,6 +13,25 @@ QUALITY_SIGNALS: list[tuple[str, tuple[str, ...]]] = [
     ("risks or limitations", ("risk", "limitation", "mitigation")),
     ("demo or implementation plan", ("demo", "rollout", "implementation plan", "launch")),
     ("structure", ("\n", ":")),
+]
+
+QUALITY_SIGNALS_CODING: list[tuple[str, tuple[str, ...]]] = [
+    ("implementation scope", ("implementation", "plan", "workflow", "orchestration")),
+    ("testability", ("test", "validation", "regression")),
+    ("maintainability", ("compatibility", "refactor", "modular", "readability")),
+    ("risk handling", ("risk", "failure", "guardrail", "mitigation")),
+    ("concrete steps", ("1.", "2.", "3.", "step", "phase")),
+    ("quality controls", ("approval", "criteria", "gate", "verify")),
+    ("performance/cost awareness", ("latency", "token", "benchmark", "cost")),
+]
+
+QUALITY_SIGNALS_DOC_REVIEW: list[tuple[str, tuple[str, ...]]] = [
+    ("clarity improvements", ("clarity", "clearer", "ambiguous", "readability")),
+    ("structure", ("structure", "section", "flow", "transition")),
+    ("evidence fidelity", ("evidence", "verify", "precise", "accuracy")),
+    ("risk/caveat coverage", ("risk", "caveat", "assumption", "limitation")),
+    ("actionability", ("action", "next-step", "recommendation", "edits")),
+    ("tone consistency", ("tone", "audience", "jargon", "terminology")),
 ]
 
 
@@ -50,11 +69,18 @@ def communication_effect_score(suggestions_count: int, incorporated_count: int) 
     return round(incorporated_count / suggestions_count, 2)
 
 
-def quality_score(output: str) -> float:
+def quality_score(output: str, scenario: str = "general") -> float:
     text = output.lower()
+    if scenario == "coding":
+        signals = QUALITY_SIGNALS_CODING
+    elif scenario == "document-review":
+        signals = QUALITY_SIGNALS_DOC_REVIEW
+    else:
+        signals = QUALITY_SIGNALS_GENERAL
+
     earned = 0
-    for _, keywords in QUALITY_SIGNALS:
+    for _, keywords in signals:
         if any(keyword in text for keyword in keywords):
             earned += 1
-    score = (earned / len(QUALITY_SIGNALS)) * 10
+    score = (earned / len(signals)) * 10
     return round(score, 1)

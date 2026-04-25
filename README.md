@@ -1,14 +1,23 @@
 # specsquared
 
-CLI MVP for a NemoAgent-style multi-agent demo that compares single-agent output, multi-agent collaboration, and SSD-backed latency improvements through an OpenAI-compatible vLLM interface.
+CLI MVP for a NemoAgent-style multi-agent demo that compares single-agent output, legacy multi-agent collaboration, personality-driven multi-agent collaboration, and SSD-backed latency improvements through an OpenAI-compatible vLLM interface.
 
 ## What This Project Is
 
-This project implements a small Python CLI that runs a pitch-refinement workflow with a Builder agent, a Critic agent, and an Outsider agent. It is designed for hackathon demos where you want to show three comparisons clearly:
+This project implements a small Python CLI with an explicit workflow selector:
+
+- `coding`: legacy Builder + Editor collaboration.
+- `scientific-paper`: seven-personality collaboration for scientific-paper review.
+
+- The coding workflow keeps legacy Builder/Editor behavior.
+- The scientific-paper workflow uses the new Big Seven personality system.
+
+It is designed for demos where you want to compare multiple approaches clearly:
 
 - A single-agent baseline.
-- A two-agent workflow on the normal backend.
-- The same two-agent workflow on the SSD-backed backend.
+- A legacy collaborative workflow on the normal backend.
+- A seven-personality collaborative workflow on the normal backend.
+- The same workflows on the SSD-backed backend (where applicable).
 
 The code does not implement SSD itself. It treats SSD as a swappable backend that exposes the same OpenAI-compatible API shape as the normal vLLM service.
 
@@ -24,7 +33,7 @@ CLI (Typer)
 Orchestrator
    |------------------------|------------------------|
    v                        v                        v
-Builder Agent           Critic Agent           Outsider Agent
+Builder/Editor Agent Set   or   Seven Personality Agent Set
    |                        |                        |
    |------------------ LLM Client ------------------|
              |
@@ -86,13 +95,23 @@ SSD endpoint:
 - `SSD_LLM_API_KEY`
 - `SSD_LLM_MODEL`
 
-## Workflow Modes
+## Workflow Selector
+
+- `--workflow coding`: uses Builder + Editor logic.
+- `--workflow scientific-paper`: uses seven-personality review logic.
+
+This selector controls which agent logic executes.
+
+## Mode Behavior
 
 - `single`: one Builder agent writes the final answer directly.
-- `two-normal`: Builder, Critic, and Outsider exchange multiple transcript-aware messages on the normal backend before the final answer.
-- `two-ssd`: same agent dialogue as `two-normal`, but routed to the SSD-backed backend.
+- `two-normal`: collaborative rounds for the selected workflow on the normal backend.
+- `two-ssd`: same as `two-normal`, routed to SSD backend.
+- `seven-personalities`: forces seven-personality path (also used automatically when `--workflow scientific-paper` is selected).
 
-Multi-agent modes use `--dialogue-rounds` to control how many Critic/Outsider/Builder exchanges happen after the first Builder draft. The default is `2`.
+Collaborative modes use `--dialogue-rounds` to control how many refinement rounds run. The default is `2`.
+
+For scientific-paper workflow, `--scenario` can be set to `auto`, `coding`, `document-review`, or `general`. `auto` is default and infers context from the prompt.
 
 ## Running Locally In Mock Mode
 
@@ -115,8 +134,18 @@ python -m nemoagent run \
 ```bash
 python -m nemoagent run \
   --mode two-normal \
+  --workflow coding \
   --backend mock \
-  --prompt "Create a pitch for an AI tool that helps doctors summarize medical papers."
+  --prompt "Implement a robust Python module and include testing strategy."
+```
+
+```bash
+python -m nemoagent run \
+  --mode two-normal \
+  --workflow scientific-paper \
+  --backend mock \
+  --scenario auto \
+  --prompt "Review this scientific abstract for clarity, evidence quality, and methodological risks."
 ```
 
 ## Running Against Normal vLLM On Brev
@@ -124,8 +153,9 @@ python -m nemoagent run \
 ```bash
 python -m nemoagent run \
   --mode two-normal \
+  --workflow coding \
   --backend normal \
-  --prompt "Create a pitch for an AI tool that helps doctors summarize medical papers."
+  --prompt "Implement a robust Python module and include testing strategy."
 ```
 
 ## Running Against SSD-backed vLLM On Brev
@@ -133,8 +163,9 @@ python -m nemoagent run \
 ```bash
 python -m nemoagent run \
   --mode two-ssd \
+  --workflow coding \
   --backend ssd \
-  --prompt "Create a pitch for an AI tool that helps doctors summarize medical papers."
+  --prompt "Implement a robust Python module and include testing strategy."
 ```
 
 ## Benchmark Command
@@ -142,16 +173,17 @@ python -m nemoagent run \
 ```bash
 python -m nemoagent bench \
   --prompt-file prompts/demo_prompts.txt \
-  --modes single,two-normal,two-ssd \
+  --workflow coding \
+  --modes single,two-normal,two-ssd,seven-personalities \
   --runs 3
 ```
 
 ## Example Commands
 
 ```bash
-python -m nemoagent run --mode single --backend normal --prompt "Create a pitch for an AI tool that helps doctors summarize medical papers."
-python -m nemoagent run --mode two-normal --backend normal --prompt "Create a pitch for an AI tool that helps doctors summarize medical papers."
-python -m nemoagent run --mode two-ssd --backend ssd --prompt "Create a pitch for an AI tool that helps doctors summarize medical papers."
+python -m nemoagent run --mode two-normal --workflow coding --backend normal --prompt "Implement a robust Python module and include testing strategy."
+python -m nemoagent run --mode two-ssd --workflow coding --backend ssd --prompt "Implement a robust Python module and include testing strategy."
+python -m nemoagent run --mode two-normal --workflow scientific-paper --backend normal --scenario auto --prompt "Review and improve a scientific paper abstract for clarity and risk coverage."
 ```
 
 ## Example Benchmark Output
@@ -169,8 +201,9 @@ python -m nemoagent run --mode two-ssd --backend ssd --prompt "Create a pitch fo
 ## What The Demo Proves
 
 - Single-agent output is the baseline.
-- Multi-turn Builder/Critic/Outsider communication changes the final answer in a visible way.
-- SSD preserves the same collaborative workflow while lowering latency.
+- Legacy multi-turn Builder/Critic/Outsider communication changes the final answer in a visible way.
+- Seven-personality collaboration provides broader critique coverage and a strict approval gate.
+- SSD preserves collaborative workflows while lowering latency.
 
 ## Local Demo Notes
 
@@ -183,3 +216,7 @@ python -m nemoagent run --mode two-ssd --backend ssd --prompt "Create a pitch fo
 - Mock mode works immediately and is deterministic enough for local development.
 - Each run saves a JSON artifact in `runs/`.
 - The terminal output includes the agent conversation, diff output, and metric summaries.
+
+## Additional Documentation
+
+- Seven personalities origin and MAPS attribution: [docs/seven-personalities-origin.md](docs/seven-personalities-origin.md)
