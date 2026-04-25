@@ -1,3 +1,8 @@
 Create a pitch for an AI tool that helps doctors summarize new medical papers.
 Create a pitch for a platform that helps small retailers predict inventory demand.
 Create a pitch for a product that helps college advisors identify at-risk students earlier.
+Create a 12-month stock pitch for Nvidia, including the bull case, bear case, key risks, and a final recommendation.
+Create a pitch for an AI copilot that helps compliance teams detect and explain suspicious financial transactions.
+Create a pitch for a startup that helps wealth managers generate personalized portfolio review summaries for clients.
+Create a pitch for a platform that helps logistics companies predict shipping delays and recommend rerouting in real time.
+Create a pitch for an enterprise tool that helps CFOs forecast cash flow risk and scenario-plan faster.

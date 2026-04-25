@@ -22,6 +22,16 @@ class Orchestrator:
         self.critic = CriticAgent(self.llm)
         self.outsider = OutsiderAgent(self.llm)
 
+    @staticmethod
+    def _mock_latency(latency_ms: float, mode: str) -> float:
+        """Simulate a faster SSD path during local mock demos."""
+        multiplier = {
+            "single": 1.0,
+            "two-normal": 1.0,
+            "two-ssd": 0.45,
+        }.get(mode, 1.0)
+        return round(latency_ms * multiplier, 2)
+
     def run_workflow(self, config: RunConfig) -> RunTrace:
         messages: list[AgentMessage] = []
         builder_draft = None
@@ -32,6 +42,8 @@ class Orchestrator:
         revision_results = []
 
         builder_first = self.builder.draft(config.prompt, config)
+        if config.backend == "mock":
+            builder_first.latency_ms = self._mock_latency(builder_first.latency_ms, config.mode)
         builder_draft = builder_first.output
         messages.append(
             AgentMessage(
@@ -55,6 +67,8 @@ class Orchestrator:
             communication_enabled = True
             for round_number in range(1, config.dialogue_rounds + 1):
                 critic_result = self.critic.respond(config.prompt, messages, config, round_number)
+                if config.backend == "mock":
+                    critic_result.latency_ms = self._mock_latency(critic_result.latency_ms, config.mode)
                 critic_results.append(critic_result)
                 critic_latency += critic_result.latency_ms
                 messages.append(
@@ -68,11 +82,9 @@ class Orchestrator:
                     )
                 )
 
-                critic_feedback = "\n\n".join(result.output for result in critic_results)
-                if final_output and critic_result.output.lower().startswith("approved:"):
-                    break
-
                 outsider_result = self.outsider.respond(config.prompt, messages, config, round_number)
+                if config.backend == "mock":
+                    outsider_result.latency_ms = self._mock_latency(outsider_result.latency_ms, config.mode)
                 outsider_results.append(outsider_result)
                 outsider_latency += outsider_result.latency_ms
                 messages.append(
@@ -87,6 +99,8 @@ class Orchestrator:
                 )
 
                 revision_result = self.builder.respond(config.prompt, messages, config, round_number)
+                if config.backend == "mock":
+                    revision_result.latency_ms = self._mock_latency(revision_result.latency_ms, config.mode)
                 revision_results.append(revision_result)
                 revision_latency += revision_result.latency_ms
                 final_output = revision_result.output
@@ -100,6 +114,10 @@ class Orchestrator:
                         metadata={"task": revision_result.task, "latency_ms": revision_result.latency_ms},
                     )
                 )
+
+                critic_feedback = "\n\n".join(result.output for result in critic_results)
+                if final_output and critic_result.output.lower().startswith("approved:"):
+                    break
 
         suggestions = parse_critic_suggestions(critic_feedback or "")
         incorporated_count = count_suggestions_incorporated(suggestions, final_output)

@@ -96,6 +96,15 @@ Multi-agent modes use `--dialogue-rounds` to control how many Critic/Outsider/Bu
 
 ## Running Locally In Mock Mode
 
+Best local demo sequence:
+
+```bash
+python -m nemoagent run --mode single --backend mock --prompt "Create a pitch for an AI tool that helps doctors summarize medical papers."
+python -m nemoagent run --mode two-no-comm --backend mock --prompt "Create a pitch for an AI tool that helps doctors summarize medical papers."
+python -m nemoagent run --mode two-normal --backend mock --prompt "Create a pitch for an AI tool that helps doctors summarize medical papers."
+python -m nemoagent run --mode two-ssd --backend mock --prompt "Create a pitch for an AI tool that helps doctors summarize medical papers."
+```
+
 ```bash
 python -m nemoagent run \
   --mode single \
@@ -162,6 +171,12 @@ python -m nemoagent run --mode two-ssd --backend ssd --prompt "Create a pitch fo
 - Single-agent output is the baseline.
 - Multi-turn Builder/Critic/Outsider communication changes the final answer in a visible way.
 - SSD preserves the same collaborative workflow while lowering latency.
+
+## Local Demo Notes
+
+- In `mock` mode, the content is deterministic so the workflow is easy to demo repeatedly.
+- `two-ssd` in `mock` mode simulates a faster latency profile so the benchmark still shows the intended SSD speedup story locally.
+- Real `normal` and `ssd` comparisons require live OpenAI-compatible endpoints.
 
 ## Notes
 

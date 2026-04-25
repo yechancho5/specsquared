@@ -29,6 +29,8 @@ def render_run(trace: RunTrace) -> None:
         print(f"Mode: {trace.config.mode}")
         print(f"Backend: {trace.config.backend}")
         print(f"Model: {trace.config.model}")
+        if trace.config.mode == "two-no-comm":
+            print("\nNote: Critic feedback is shown but intentionally not incorporated.\n")
         print("\nBuilder Draft:\n")
         print(trace.builder_draft or "")
         if len(trace.messages) > 1:
@@ -55,6 +57,22 @@ def render_run(trace: RunTrace) -> None:
             title="NemoAgent Run",
         )
     )
+    if trace.config.mode == "two-no-comm":
+        console.print(
+            Panel.fit(
+                "Critic feedback is displayed, but the final output intentionally ignores it.",
+                title="Communication Disabled",
+                border_style="red",
+            )
+        )
+    elif trace.config.mode == "two-ssd" and trace.config.backend == "mock":
+        console.print(
+            Panel.fit(
+                "Mock mode is simulating a faster SSD latency profile for local demos.",
+                title="SSD Simulation",
+                border_style="blue",
+            )
+        )
     console.print(Panel(trace.builder_draft or "", title="Builder Draft", border_style="cyan"))
     if len(trace.messages) > 1:
         conversation = []
