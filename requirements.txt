@@ -1,0 +1,5 @@
+typer
+rich
+pydantic
+httpx
+python-dotenv
