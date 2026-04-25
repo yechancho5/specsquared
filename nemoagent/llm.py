@@ -48,7 +48,40 @@ class MockLLMBackend(BaseLLMBackend):
         prompt = _extract_prompt(messages)
         lower = prompt.lower()
 
-        if "revise the pitch" in lower or ("first draft:" in lower and "critic feedback" in lower):
+        if "critic response round 2" in lower:
+            text = (
+                "APPROVED: The revised pitch now names the user, shows concrete workflow features, "
+                "addresses outsider skepticism, and has a demo path that is specific enough for evaluation."
+            )
+        elif "builder response round 2" in lower:
+            text = (
+                "MediBrief gives hospital physicians a specialty-specific command center for keeping up with new clinical research.\n\n"
+                "Problem: Clinicians cannot reliably track the flood of new papers while managing patient care, documentation, and team handoffs.\n"
+                "Target user: Hospital physicians, specialists, and residents who need trusted, workflow-ready research updates.\n"
+                "Solution: MediBrief ingests new medical papers, ranks them by specialty and relevance, and turns them into cited, reviewable summaries.\n"
+                "Key features:\n"
+                "- Daily specialty feeds that triage papers by clinical relevance.\n"
+                "- Structured evidence summaries covering findings, limitations, and likely clinical impact.\n"
+                "- Department review queues where leads can approve, annotate, or assign papers to care teams.\n"
+                "Differentiation: Unlike generic AI assistants, MediBrief is built around literature surveillance, citation grounding, and clinical team review.\n"
+                "Risks: Incorrect synthesis, stale evidence, and overreliance. Mitigation: source-linked claims, recency filters, confidence flags, and mandatory human approval for clinical use.\n"
+                "Demo plan: Show an oncology feed, open a new paper summary, verify citations, and route it through a physician approval workflow."
+            )
+        elif "outsider response round 1" in lower:
+            text = (
+                "1. A skeptical hospital buyer will ask how this fits existing clinical systems instead of becoming another dashboard.\n"
+                "2. The pitch should explain why clinicians would trust the summaries for high-stakes work.\n"
+                "3. The value is clearer if the demo shows one complete before-and-after workflow, not only product screens."
+            )
+        elif "critic response round 1" in lower:
+            text = (
+                "1. Make the target user more specific than doctors.\n"
+                "2. Tie the problem to daily clinical workflow pressure.\n"
+                "3. Add review or approval features that show how teams would actually use it.\n"
+                "4. Strengthen the risk section with concrete mitigation steps.\n"
+                "5. Make the demo plan show a complete workflow from paper intake to approval."
+            )
+        elif "builder response round 1" in lower or "revise the pitch" in lower or ("first draft:" in lower and "critic feedback" in lower):
             text = (
                 "MediBrief turns the flood of new medical papers into fast, trustworthy updates for busy clinicians.\n\n"
                 "Problem: Doctors cannot keep up with new research while balancing patient care, documentation, and compliance.\n"
@@ -57,10 +90,10 @@ class MockLLMBackend(BaseLLMBackend):
                 "Key features:\n"
                 "- Specialty-specific daily briefings with paper triage.\n"
                 "- Evidence summaries that highlight findings, limitations, and clinical impact.\n"
-                "- Team review mode so department leads can approve or annotate summaries.\n"
+                "- Team review mode so department leads can approve summaries and route them into existing clinical workflows.\n"
                 "Differentiation: Unlike generic AI assistants, MediBrief is tuned for medical literature workflows and keeps every summary grounded in source citations.\n"
-                "Risks: Hallucinated conclusions and stale literature. Mitigation: citation checks, human review, and recency filters.\n"
-                "Demo plan: Show one oncology feed, a paper summary, and a physician dashboard with approval flow."
+                "Risks: Hallucinated conclusions, stale literature, and clinician trust. Mitigation: citation checks, human review, recency filters, and source-visible confidence flags.\n"
+                "Demo plan: Show one oncology feed, a paper summary, citation verification, and a physician approval flow from intake to team handoff."
             )
         elif "numbered suggestions" in lower or "return 4-6 numbered suggestions" in lower:
             text = (

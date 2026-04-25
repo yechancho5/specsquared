@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
 
-WorkflowMode = Literal["single", "two-no-comm", "two-normal", "two-ssd"]
+WorkflowMode = Literal["single", "two-normal", "two-ssd"]
 BackendName = Literal["mock", "normal", "ssd"]
 
 
@@ -27,14 +27,14 @@ class GenerationResult(BaseModel):
     tokens_per_second: float
     backend: BackendName
     model: str
-    raw_response: dict[str, Any] | None = None
+    raw_response: Optional[dict[str, Any]] = None
 
 
 class AgentMessage(BaseModel):
     id: str = Field(default_factory=lambda: uuid4().hex)
     run_id: str
     from_agent: str
-    to_agent: str | None = None
+    to_agent: Optional[str] = None
     role: str
     content: str
     timestamp: str = Field(default_factory=utc_now)
@@ -60,6 +60,7 @@ class RunConfig(BaseModel):
     model: str
     temperature: float = 0.2
     max_tokens: int = 700
+    dialogue_rounds: int = 2
     timestamp: str = Field(default_factory=utc_now)
 
 
@@ -70,6 +71,7 @@ class BenchmarkMetrics(BaseModel):
     time_to_first_output_ms: float
     builder_draft_latency_ms: float = 0.0
     critic_latency_ms: float = 0.0
+    outsider_latency_ms: float = 0.0
     builder_revision_latency_ms: float = 0.0
     tokens_in: int = 0
     tokens_out: int = 0
@@ -82,15 +84,15 @@ class BenchmarkMetrics(BaseModel):
 
 
 class RunArtifacts(BaseModel):
-    log_path: str | None = None
-    diff: str | None = None
+    log_path: Optional[str] = None
+    diff: Optional[str] = None
 
 
 class RunTrace(BaseModel):
     config: RunConfig
     messages: list[AgentMessage] = Field(default_factory=list)
-    builder_draft: str | None = None
-    critic_feedback: str | None = None
+    builder_draft: Optional[str] = None
+    critic_feedback: Optional[str] = None
     final_output: str
     metrics: BenchmarkMetrics
     artifacts: RunArtifacts = Field(default_factory=RunArtifacts)

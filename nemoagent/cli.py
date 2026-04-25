@@ -20,7 +20,7 @@ def resolve_backend(mode: WorkflowMode, backend: Optional[BackendName]) -> Backe
         return backend
     if mode == "two-ssd":
         return "ssd"
-    if mode in {"single", "two-no-comm", "two-normal"}:
+    if mode in {"single", "two-normal"}:
         return "normal"
     return "mock"
 
@@ -29,10 +29,11 @@ def resolve_backend(mode: WorkflowMode, backend: Optional[BackendName]) -> Backe
 def run(
     mode: WorkflowMode = typer.Option(..., help="Workflow mode."),
     prompt: str = typer.Option(..., help="User prompt."),
-    backend: BackendName | None = typer.Option(None, help="Inference backend."),
-    model: str | None = typer.Option(None, help="Model name."),
+    backend: Optional[BackendName] = typer.Option(None, help="Inference backend."),
+    model: Optional[str] = typer.Option(None, help="Model name."),
     temperature: float = typer.Option(0.2, help="Sampling temperature."),
     max_tokens: int = typer.Option(700, help="Max output tokens."),
+    dialogue_rounds: int = typer.Option(2, min=1, help="Critic/Builder dialogue rounds for two-agent modes."),
 ) -> None:
     load_dotenv()
     llm = LLMClient()
@@ -44,6 +45,7 @@ def run(
         model=model or llm.default_model_for(resolved_backend),
         temperature=temperature,
         max_tokens=max_tokens,
+        dialogue_rounds=dialogue_rounds,
     )
     trace = Orchestrator(llm=llm).run_workflow(config)
     render_run(trace)
@@ -52,12 +54,13 @@ def run(
 @app.command()
 def bench(
     prompt_file: str = typer.Option(..., help="Path to prompt file."),
-    modes: str = typer.Option("single,two-no-comm,two-normal,two-ssd", help="Comma-separated modes."),
+    modes: str = typer.Option("single,two-normal,two-ssd", help="Comma-separated modes."),
     runs: int = typer.Option(3, help="Runs per prompt and mode."),
-    backend: BackendName | None = typer.Option(None, help="Optional backend override."),
-    model: str | None = typer.Option(None, help="Optional model override."),
+    backend: Optional[BackendName] = typer.Option(None, help="Optional backend override."),
+    model: Optional[str] = typer.Option(None, help="Optional model override."),
     temperature: float = typer.Option(0.2, help="Sampling temperature."),
     max_tokens: int = typer.Option(700, help="Max output tokens."),
+    dialogue_rounds: int = typer.Option(2, min=1, help="Critic/Builder dialogue rounds for two-agent modes."),
 ) -> None:
     load_dotenv()
     selected_modes = [mode.strip() for mode in modes.split(",") if mode.strip()]
@@ -69,6 +72,7 @@ def bench(
         model=model,
         temperature=temperature,
         max_tokens=max_tokens,
+        dialogue_rounds=dialogue_rounds,
     )
     render_benchmark(rows, saved_path=saved_path)
 

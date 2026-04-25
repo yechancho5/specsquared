@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 from .llm import LLMClient
 from .orchestrator import Orchestrator
@@ -21,10 +22,11 @@ def run_benchmark(
     prompt_file: str,
     modes: list[WorkflowMode],
     runs: int,
-    backend_override: str | None = None,
-    model: str | None = None,
+    backend_override: Optional[str] = None,
+    model: Optional[str] = None,
     temperature: float = 0.2,
     max_tokens: int = 700,
+    dialogue_rounds: int = 2,
 ) -> tuple[list[BenchmarkSummaryRow], str]:
     llm = LLMClient()
     orchestrator = Orchestrator(llm=llm)
@@ -42,6 +44,7 @@ def run_benchmark(
                     model=model or llm.default_model_for(backend),  # type: ignore[arg-type]
                     temperature=temperature,
                     max_tokens=max_tokens,
+                    dialogue_rounds=dialogue_rounds,
                 )
                 trace = orchestrator.run_workflow(config)
                 results.setdefault((mode, backend), []).append(trace.metrics)

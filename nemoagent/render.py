@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 from .schemas import BenchmarkSummaryRow, RunTrace
 
@@ -17,7 +17,7 @@ except ImportError:  # pragma: no cover
     RICH_AVAILABLE = False
 
 
-def _console() -> Console | None:
+def _console() -> Optional[Console]:
     if not RICH_AVAILABLE:
         return None
     return Console()
@@ -31,9 +31,12 @@ def render_run(trace: RunTrace) -> None:
         print(f"Model: {trace.config.model}")
         print("\nBuilder Draft:\n")
         print(trace.builder_draft or "")
-        if trace.critic_feedback:
-            print("\nCritic Feedback:\n")
-            print(trace.critic_feedback)
+        if len(trace.messages) > 1:
+            print("\nAgent Conversation:\n")
+            for message in trace.messages:
+                recipient = f" -> {message.to_agent}" if message.to_agent else ""
+                task = message.metadata.get("task", "message")
+                print(f"[{task}] {message.from_agent}{recipient}:\n{message.content}\n")
         print("\nFinal Output:\n")
         print(trace.final_output)
         if trace.artifacts.diff:
@@ -53,8 +56,13 @@ def render_run(trace: RunTrace) -> None:
         )
     )
     console.print(Panel(trace.builder_draft or "", title="Builder Draft", border_style="cyan"))
-    if trace.critic_feedback:
-        console.print(Panel(trace.critic_feedback, title="Critic Feedback", border_style="yellow"))
+    if len(trace.messages) > 1:
+        conversation = []
+        for message in trace.messages:
+            recipient = f" -> {message.to_agent}" if message.to_agent else ""
+            task = message.metadata.get("task", "message")
+            conversation.append(f"[bold]{message.from_agent}{recipient}[/bold] [{task}]\n{message.content}")
+        console.print(Panel("\n\n".join(conversation), title="Agent Conversation", border_style="yellow"))
     console.print(Panel(trace.final_output, title="Final Output", border_style="green"))
     if trace.artifacts.diff:
         console.print(Panel(trace.artifacts.diff, title="Before / After Diff", border_style="magenta"))
@@ -69,7 +77,7 @@ def render_run(trace: RunTrace) -> None:
     console.print(f"[bold]Run log:[/bold] {trace.artifacts.log_path}")
 
 
-def render_benchmark(rows: list[BenchmarkSummaryRow], saved_path: str | None = None) -> None:
+def render_benchmark(rows: list[BenchmarkSummaryRow], saved_path: Optional[str] = None) -> None:
     console = _console()
     if console is None:
         print("Benchmark Summary")

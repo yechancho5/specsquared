@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from difflib import unified_diff
+from typing import Optional
 
-from .agents import BuilderAgent, CriticAgent
+from .agents import BuilderAgent, CriticAgent, OutsiderAgent
 from .llm import LLMClient
 from .metrics import (
     communication_effect_score,
@@ -15,18 +16,20 @@ from .schemas import AgentMessage, BenchmarkMetrics, RunArtifacts, RunConfig, Ru
 
 
 class Orchestrator:
-    def __init__(self, llm: LLMClient | None = None) -> None:
+    def __init__(self, llm: Optional[LLMClient] = None) -> None:
         self.llm = llm or LLMClient()
         self.builder = BuilderAgent(self.llm)
         self.critic = CriticAgent(self.llm)
+        self.outsider = OutsiderAgent(self.llm)
 
     def run_workflow(self, config: RunConfig) -> RunTrace:
         messages: list[AgentMessage] = []
         builder_draft = None
         critic_feedback = None
         final_output = ""
-        critic_result = None
-        revision_result = None
+        critic_results = []
+        outsider_results = []
+        revision_results = []
 
         builder_first = self.builder.draft(config.prompt, config)
         builder_draft = builder_first.output
@@ -41,6 +44,7 @@ class Orchestrator:
         )
 
         critic_latency = 0.0
+        outsider_latency = 0.0
         revision_latency = 0.0
         time_to_first_output_ms = builder_first.latency_ms
         communication_enabled = False
@@ -48,35 +52,52 @@ class Orchestrator:
         if config.mode == "single":
             final_output = builder_draft
         else:
-            critic_result = self.critic.critique(config.prompt, builder_draft, config)
-            critic_feedback = critic_result.output
-            critic_latency = critic_result.latency_ms
-            messages.append(
-                AgentMessage(
-                    run_id=config.run_id,
-                    from_agent="critic",
-                    to_agent="builder",
-                    role="assistant",
-                    content=critic_feedback,
-                    metadata={"task": "critique", "latency_ms": critic_result.latency_ms},
+            communication_enabled = True
+            for round_number in range(1, config.dialogue_rounds + 1):
+                critic_result = self.critic.respond(config.prompt, messages, config, round_number)
+                critic_results.append(critic_result)
+                critic_latency += critic_result.latency_ms
+                messages.append(
+                    AgentMessage(
+                        run_id=config.run_id,
+                        from_agent="critic",
+                        to_agent="builder",
+                        role="assistant",
+                        content=critic_result.output,
+                        metadata={"task": critic_result.task, "latency_ms": critic_result.latency_ms},
+                    )
                 )
-            )
 
-            if config.mode == "two-no-comm":
-                final_output = builder_draft
-            else:
-                communication_enabled = True
-                revision_result = self.builder.revise(config.prompt, builder_draft, critic_feedback, config)
-                revision_latency = revision_result.latency_ms
+                critic_feedback = "\n\n".join(result.output for result in critic_results)
+                if final_output and critic_result.output.lower().startswith("approved:"):
+                    break
+
+                outsider_result = self.outsider.respond(config.prompt, messages, config, round_number)
+                outsider_results.append(outsider_result)
+                outsider_latency += outsider_result.latency_ms
+                messages.append(
+                    AgentMessage(
+                        run_id=config.run_id,
+                        from_agent="outsider",
+                        to_agent="builder",
+                        role="assistant",
+                        content=outsider_result.output,
+                        metadata={"task": outsider_result.task, "latency_ms": outsider_result.latency_ms},
+                    )
+                )
+
+                revision_result = self.builder.respond(config.prompt, messages, config, round_number)
+                revision_results.append(revision_result)
+                revision_latency += revision_result.latency_ms
                 final_output = revision_result.output
                 messages.append(
                     AgentMessage(
                         run_id=config.run_id,
                         from_agent="builder",
-                        to_agent="user",
+                        to_agent="critic",
                         role="assistant",
                         content=final_output,
-                        metadata={"task": "revise", "latency_ms": revision_result.latency_ms},
+                        metadata={"task": revision_result.task, "latency_ms": revision_result.latency_ms},
                     )
                 )
 
@@ -97,10 +118,11 @@ class Orchestrator:
         metrics = BenchmarkMetrics(
             mode=config.mode,
             backend=config.backend,
-            total_latency_ms=round(builder_first.latency_ms + critic_latency + revision_latency, 2),
+            total_latency_ms=round(builder_first.latency_ms + critic_latency + outsider_latency + revision_latency, 2),
             time_to_first_output_ms=round(time_to_first_output_ms, 2),
             builder_draft_latency_ms=round(builder_first.latency_ms, 2),
             critic_latency_ms=round(critic_latency, 2),
+            outsider_latency_ms=round(outsider_latency, 2),
             builder_revision_latency_ms=round(revision_latency, 2),
             tokens_in=0,
             tokens_out=0,
@@ -115,11 +137,12 @@ class Orchestrator:
         token_in_total = builder_first.tokens_in
         token_out_total = builder_first.tokens_out
         if config.mode != "single":
-            token_in_total += critic_result.tokens_in
-            token_out_total += critic_result.tokens_out
-            if config.mode != "two-no-comm":
-                token_in_total += revision_result.tokens_in
-                token_out_total += revision_result.tokens_out
+            token_in_total += sum(result.tokens_in for result in critic_results)
+            token_out_total += sum(result.tokens_out for result in critic_results)
+            token_in_total += sum(result.tokens_in for result in outsider_results)
+            token_out_total += sum(result.tokens_out for result in outsider_results)
+            token_in_total += sum(result.tokens_in for result in revision_results)
+            token_out_total += sum(result.tokens_out for result in revision_results)
 
         metrics.tokens_in = token_in_total
         metrics.tokens_out = token_out_total

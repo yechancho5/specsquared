@@ -4,11 +4,11 @@ CLI MVP for a NemoAgent-style multi-agent demo that compares single-agent output
 
 ## What This Project Is
 
-This project implements a small Python CLI that runs a pitch-refinement workflow with a Builder agent and a Critic agent. It is designed for hackathon demos where you want to show three things clearly:
+This project implements a small Python CLI that runs a pitch-refinement workflow with a Builder agent, a Critic agent, and an Outsider agent. It is designed for hackathon demos where you want to show three comparisons clearly:
 
-- A two-agent workflow can produce a better answer than a single agent.
-- Inter-agent communication changes the final answer in a visible way.
-- An SSD-backed inference endpoint can reduce end-to-end latency compared with a normal endpoint.
+- A single-agent baseline.
+- A two-agent workflow on the normal backend.
+- The same two-agent workflow on the SSD-backed backend.
 
 The code does not implement SSD itself. It treats SSD as a swappable backend that exposes the same OpenAI-compatible API shape as the normal vLLM service.
 
@@ -22,11 +22,11 @@ CLI (Typer)
    |
    v
 Orchestrator
-   |------------------------|
-   v                        v
-Builder Agent           Critic Agent
-   |                        |
-   |------ LLM Client ------|
+   |------------------------|------------------------|
+   v                        v                        v
+Builder Agent           Critic Agent           Outsider Agent
+   |                        |                        |
+   |------------------ LLM Client ------------------|
              |
    -------------------------------
    |             |               |
@@ -89,9 +89,10 @@ SSD endpoint:
 ## Workflow Modes
 
 - `single`: one Builder agent writes the final answer directly.
-- `two-no-comm`: Builder drafts, Critic reviews, but the final output ignores critique.
-- `two-normal`: Builder drafts, Critic reviews, Builder revises using critique on the normal backend.
-- `two-ssd`: same as `two-normal`, but routed to the SSD-backed backend.
+- `two-normal`: Builder, Critic, and Outsider exchange multiple transcript-aware messages on the normal backend before the final answer.
+- `two-ssd`: same agent dialogue as `two-normal`, but routed to the SSD-backed backend.
+
+Multi-agent modes use `--dialogue-rounds` to control how many Critic/Outsider/Builder exchanges happen after the first Builder draft. The default is `2`.
 
 ## Running Locally In Mock Mode
 
@@ -132,7 +133,7 @@ python -m nemoagent run \
 ```bash
 python -m nemoagent bench \
   --prompt-file prompts/demo_prompts.txt \
-  --modes single,two-no-comm,two-normal,two-ssd \
+  --modes single,two-normal,two-ssd \
   --runs 3
 ```
 
@@ -140,7 +141,6 @@ python -m nemoagent bench \
 
 ```bash
 python -m nemoagent run --mode single --backend normal --prompt "Create a pitch for an AI tool that helps doctors summarize medical papers."
-python -m nemoagent run --mode two-no-comm --backend normal --prompt "Create a pitch for an AI tool that helps doctors summarize medical papers."
 python -m nemoagent run --mode two-normal --backend normal --prompt "Create a pitch for an AI tool that helps doctors summarize medical papers."
 python -m nemoagent run --mode two-ssd --backend ssd --prompt "Create a pitch for an AI tool that helps doctors summarize medical papers."
 ```
@@ -152,21 +152,19 @@ python -m nemoagent run --mode two-ssd --backend ssd --prompt "Create a pitch fo
 ┃ Mode         ┃ Backend ┃ Avg Total Latency ┃ Avg Quality ┃ Avg Suggestions Used  ┃ Avg Tokens/sec ┃ Avg Comm Effect ┃
 ┡━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━┩
 │ single       │ normal  │ 4.20s             │ 6.50        │ 0.00                  │ 42.10          │ 0.00            │
-│ two-no-comm  │ normal  │ 7.80s             │ 6.70        │ 0.00                  │ 40.80          │ 0.00            │
-│ two-normal   │ normal  │ 12.90s            │ 8.40        │ 3.00                  │ 39.50          │ 0.75            │
-│ two-ssd      │ ssd     │ 6.10s             │ 8.30        │ 3.00                  │ 82.20          │ 0.75            │
+│ two-normal   │ normal  │ 14.80s            │ 8.70        │ 4.00                  │ 38.20          │ 0.80            │
+│ two-ssd      │ ssd     │ 7.10s             │ 8.70        │ 4.00                  │ 81.50          │ 0.80            │
 └──────────────┴─────────┴───────────────────┴─────────────┴───────────────────────┴────────────────┴─────────────────┘
 ```
 
 ## What The Demo Proves
 
-- Single-agent output is faster but weaker.
-- Critique without incorporation is not enough.
-- Two-agent revision improves quality.
-- SSD preserves the collaborative workflow while lowering latency.
+- Single-agent output is the baseline.
+- Multi-turn Builder/Critic/Outsider communication changes the final answer in a visible way.
+- SSD preserves the same collaborative workflow while lowering latency.
 
 ## Notes
 
 - Mock mode works immediately and is deterministic enough for local development.
 - Each run saves a JSON artifact in `runs/`.
-- The terminal output includes agent sections, diff output, and metric summaries.
+- The terminal output includes the agent conversation, diff output, and metric summaries.
